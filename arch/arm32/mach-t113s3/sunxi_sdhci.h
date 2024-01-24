@@ -132,9 +132,13 @@ typedef struct {
 	gpio_mux_t gpio_cmd;
 	gpio_mux_t gpio_clk;
 
+	u32		   *ccuclk;
+	u32		   smhc_gate;
+	u32		   smhc_reset;
 } sdhci_t;
 
 extern sdhci_t sdhci0;
+extern sdhci_t sdhci1;
 
 bool sdhci_reset(sdhci_t *hci);
 bool sdhci_set_voltage(sdhci_t *hci, u32 voltage);

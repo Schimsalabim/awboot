@@ -4,6 +4,7 @@
 #include "sunxi_sdhci.h"
 #include "sunxi_usart.h"
 #include "sunxi_spi.h"
+#include "reg-ccu.h"
 #include "sdmmc.h"
 
 sunxi_usart_t usart5_dbg = {
@@ -18,6 +19,13 @@ sunxi_usart_t usart0_dbg = {
 	.id		 = 0,
 	.gpio_tx = {GPIO_PIN(PORTE, 2), GPIO_PERIPH_MUX6},
 	.gpio_rx = {GPIO_PIN(PORTE, 3), GPIO_PERIPH_MUX6},
+};
+
+sunxi_usart_t usart_dbg = {
+	.base	 = 0x02500400,
+	.id		 = 1,
+	.gpio_tx = {GPIO_PIN(PORTG, 6), GPIO_PERIPH_MUX2},
+	.gpio_rx = {GPIO_PIN(PORTB, 7), GPIO_PERIPH_MUX2},
 };
 
 sunxi_usart_t usart3_dbg = {
@@ -40,20 +48,43 @@ sunxi_spi_t sunxi_spi0 = {
 };
 
 sdhci_t sdhci0 = {
-	.name	   = "sdhci0",
-	.reg	   = (sdhci_reg_t *)0x04020000,
-	.voltage   = MMC_VDD_27_36,
-	.width	   = MMC_BUS_WIDTH_4,
-	.clock	   = MMC_CLK_50M,
-	.removable = 0,
-	.isspi	   = FALSE,
-	.gpio_clk  = {GPIO_PIN(PORTF, 2), GPIO_PERIPH_MUX2},
-	.gpio_cmd  = {GPIO_PIN(PORTF, 3), GPIO_PERIPH_MUX2},
-	.gpio_d0   = {GPIO_PIN(PORTF, 1), GPIO_PERIPH_MUX2},
-	.gpio_d1   = {GPIO_PIN(PORTF, 0), GPIO_PERIPH_MUX2},
-	.gpio_d2   = {GPIO_PIN(PORTF, 5), GPIO_PERIPH_MUX2},
-	.gpio_d3   = {GPIO_PIN(PORTF, 4), GPIO_PERIPH_MUX2},
+        .name      = "sdhci0",
+        .reg       = (sdhci_reg_t *)0x04020000,
+        .voltage   = MMC_VDD_27_36,
+        .width     = MMC_BUS_WIDTH_4,
+        .clock     = MMC_CLK_200M,
+        .removable = 0,
+        .isspi     = FALSE,
+        .gpio_clk  = {GPIO_PIN(PORTF, 2), GPIO_PERIPH_MUX2},
+        .gpio_cmd  = {GPIO_PIN(PORTF, 3), GPIO_PERIPH_MUX2},
+        .gpio_d0   = {GPIO_PIN(PORTF, 1), GPIO_PERIPH_MUX2},
+        .gpio_d1   = {GPIO_PIN(PORTF, 0), GPIO_PERIPH_MUX2},
+        .gpio_d2   = {GPIO_PIN(PORTF, 5), GPIO_PERIPH_MUX2},
+        .gpio_d3   = {GPIO_PIN(PORTF, 4), GPIO_PERIPH_MUX2},
+	.ccuclk    = (u32 *) 0x02001830,
+	.smhc_gate = CCU_MMC_BGR_SMHC0_GATE,
+	.smhc_reset = CCU_MMC_BGR_SMHC0_RST,
 };
+
+sdhci_t sdhci1 = {
+        .name      = "sdhci1",
+        .reg       = (sdhci_reg_t *)0x04022000,
+        .voltage   = MMC_VDD_27_36,
+        .width     = MMC_BUS_WIDTH_4,
+        .clock     = MMC_CLK_200M,
+        .removable = 0,
+        .isspi     = FALSE,
+        .gpio_clk  = {GPIO_PIN(PORTC, 2), GPIO_PERIPH_MUX3},
+        .gpio_cmd  = {GPIO_PIN(PORTC, 3), GPIO_PERIPH_MUX3},
+        .gpio_d0   = {GPIO_PIN(PORTC, 6), GPIO_PERIPH_MUX3},
+        .gpio_d1   = {GPIO_PIN(PORTC, 5), GPIO_PERIPH_MUX3},
+        .gpio_d2   = {GPIO_PIN(PORTC, 4), GPIO_PERIPH_MUX3},
+        .gpio_d3   = {GPIO_PIN(PORTC, 7), GPIO_PERIPH_MUX3},
+	.ccuclk    = (u32 *) 0x02001838,
+	.smhc_gate = CCU_MMC_BGR_SMHC2_GATE,
+	.smhc_reset = CCU_MMC_BGR_SMHC2_RST,
+};
+
 
 static gpio_t led_blue = GPIO_PIN(PORTD, 22);
 

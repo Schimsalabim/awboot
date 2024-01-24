@@ -140,6 +140,7 @@
 #define EXT_CSD_PWR_CL_4BIT_SHIFT 0
 
 sdmmc_pdata_t card0;
+sdmmc_pdata_t card1;
 
 #define UNSTUFF_BITS(resp, start, size)                              \
 	({                                                               \

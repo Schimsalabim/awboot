@@ -54,7 +54,7 @@ build:: build_revision
 
 # $(1): varient name
 # $(2): values to remove from board.h
-define VARIENT =
+define VARIENT = spi
 
 # Objects
 $(1)_OBJ_DIR = build-$(1)

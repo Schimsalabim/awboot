@@ -46,7 +46,6 @@ static int boot_image_setup(unsigned char *addr, unsigned int *entry)
 	return -1;
 }
 
-#if defined(CONFIG_BOOT_SDCARD) || defined(CONFIG_BOOT_MMC)
 #define CHUNK_SIZE 0x20000
 
 static int fatfs_loadimage(char *filename, BYTE *dest)
@@ -57,7 +56,6 @@ static int fatfs_loadimage(char *filename, BYTE *dest)
 	UINT	 total_read = 0;
 	FRESULT	 fret;
 	int		 ret;
-	uint32_t UNUSED_DEBUG start, time;
 
 	fret = f_open(&file, filename, FA_OPEN_EXISTING | FA_READ);
 	if (fret != FR_OK) {
@@ -66,16 +64,12 @@ static int fatfs_loadimage(char *filename, BYTE *dest)
 		goto open_fail;
 	}
 
-	start = time_ms();
-
 	do {
 		byte_read = 0;
 		fret	  = f_read(&file, (void *)(dest), byte_to_read, &byte_read);
 		dest += byte_to_read;
 		total_read += byte_read;
 	} while (byte_read >= byte_to_read && fret == FR_OK);
-
-	time = time_ms() - start + 1;
 
 	if (fret != FR_OK) {
 		error("FATFS: read: error %d\r\n", fret);
@@ -87,31 +81,21 @@ static int fatfs_loadimage(char *filename, BYTE *dest)
 read_fail:
 	fret = f_close(&file);
 
-	debug("FATFS: read in %" PRIu32 "ms at %.2fMB/S\r\n", time, (f32)(total_read / time) / 1024.0f);
-
 open_fail:
 	return ret;
 }
 
-static int load_sdcard(image_info_t *image)
+static int load_sdcard(image_info_t *image, sdmmc_pdata_t *card, int drvnum)
 {
 	FATFS	fs;
 	FRESULT fret;
 	int		ret;
-	u32 UNUSED_DEBUG	start;
+	char *pathbuf = "0:";
 
-#if defined(CONFIG_SDMMC_SPEED_TEST_SIZE) && LOG_LEVEL >= LOG_DEBUG
-	u32 test_time;
-	start = time_ms();
-	sdmmc_blk_read(&card0, (u8 *)(SDRAM_BASE), 0, CONFIG_SDMMC_SPEED_TEST_SIZE);
-	test_time = time_ms() - start;
-	debug("SDMMC: speedtest %uKB in %" PRIu32 "ms at %" PRIu32 "KB/S\r\n", (CONFIG_SDMMC_SPEED_TEST_SIZE * 512) / 1024, test_time,
-		  (CONFIG_SDMMC_SPEED_TEST_SIZE * 512) / test_time);
-#endif // SDMMC_SPEED_TEST
+	*pathbuf += drvnum;
 
-	start = time_ms();
 	/* mount fs */
-	fret = f_mount(&fs, "", 1);
+	fret = f_mount(&fs, pathbuf, 1);
 	if (fret != FR_OK) {
 		error("FATFS: mount error: %d\r\n", fret);
 		return -1;
@@ -119,74 +103,53 @@ static int load_sdcard(image_info_t *image)
 		debug("FATFS: mount OK\r\n");
 	}
 
+	*(image->of_filename) += drvnum;
 	info("FATFS: read %s addr=%x\r\n", image->of_filename, (unsigned int)image->of_dest);
 	ret = fatfs_loadimage(image->of_filename, image->of_dest);
 	if (ret)
 		return ret;
 
+	*image->filename += drvnum;
 	info("FATFS: read %s addr=%x\r\n", image->filename, (unsigned int)image->dest);
 	ret = fatfs_loadimage(image->filename, image->dest);
 	if (ret)
 		return ret;
 
 	/* umount fs */
-	fret = f_mount(0, "", 0);
+	fret = f_mount(0, pathbuf, 0);
 	if (fret != FR_OK) {
 		error("FATFS: unmount error %d\r\n", fret);
 		return -1;
 	} else {
 		debug("FATFS: unmount OK\r\n");
 	}
-	debug("FATFS: done in %" PRIu32 "ms\r\n", time_ms() - start);
 
 	return 0;
 }
 
-#endif
 
-#ifdef CONFIG_BOOT_SPINAND
-int load_spi_nand(sunxi_spi_t *spi, image_info_t *image)
-{
-	linux_zimage_header_t *hdr;
-	unsigned int		   size;
-	uint64_t UNUSED_DEBUG	   start, time;
+static int 
+smhc_load(sdhci_t *sdhci, sdmmc_pdata_t *card, image_info_t *image, int drvnum) {
 
-	if (spi_nand_detect(spi) != 0)
-		return -1;
+        if (sunxi_sdhci_init(sdhci) != 0) {
+                fatal("SMHC: %s controller init failed\r\n", sdhci->name);
+        } else {
+                info("SMHC: %s controller v%x initialized\r\n", sdhci->name, (unsigned int) sdhci->reg->vers);
+        }
+        if (sdmmc_init(card, sdhci) != 0) {
+                info("SMHC: init failed\r\n");
+		return 0;
+        }
 
-	/* get dtb size and read */
-	spi_nand_read(spi, image->of_dest, CONFIG_SPINAND_DTB_ADDR, (uint32_t)sizeof(boot_param_header_t));
-	if (of_get_magic_number(image->of_dest) != OF_DT_MAGIC) {
-		error("SPI-NAND: DTB verification failed\r\n");
-		return -1;
-	}
+	*(image->filename) = '0';
+	*(image->of_filename) = '0';
 
-	size = of_get_dt_total_size(image->of_dest);
-	debug("SPI-NAND: dt blob: Copy from 0x%08x to 0x%08lx size:0x%08x\r\n", CONFIG_SPINAND_DTB_ADDR,
-		  (uint32_t)image->of_dest, size);
-	start = time_us();
-	spi_nand_read(spi, image->of_dest, CONFIG_SPINAND_DTB_ADDR, (uint32_t)size);
-	time = time_us() - start;
-	info("SPI-NAND: read dt blob of size %u at %.2fMB/S\r\n", size, (f32)(size / time));
-
-	/* get kernel size and read */
-	spi_nand_read(spi, image->dest, CONFIG_SPINAND_KERNEL_ADDR, (uint32_t)sizeof(linux_zimage_header_t));
-	hdr = (linux_zimage_header_t *)image->dest;
-	if (hdr->magic != LINUX_ZIMAGE_MAGIC) {
-		debug("SPI-NAND: zImage verification failed\r\n");
-		return -1;
-	}
-	size = hdr->end - hdr->start;
-	debug("SPI-NAND: Image: Copy from 0x%08x to 0x%08lx size:0x%08x\r\n", CONFIG_SPINAND_KERNEL_ADDR,
-		  (uint32_t)image->dest, size);
-	start = time_us();
-	spi_nand_read(spi, image->dest, CONFIG_SPINAND_KERNEL_ADDR, (uint32_t)size);
-	time = time_us() - start;
-	info("SPI-NAND: read Image of size %u at %.2fMB/S\r\n", size, (f32)(size / time));
-
-	return 0;
+        if (load_sdcard(image, card, drvnum) != 0) {
+                return 0;
+        } else {
+                return 1;
+        }
 }
-#endif
 
 int main(void)
 {
@@ -210,63 +173,19 @@ int main(void)
 	image.of_dest = (u8 *)CONFIG_DTB_LOAD_ADDR;
 	image.dest	  = (u8 *)CONFIG_KERNEL_LOAD_ADDR;
 
-#if defined(CONFIG_BOOT_SDCARD) || defined(CONFIG_BOOT_MMC)
-
 	strcpy(image.filename, CONFIG_KERNEL_FILENAME);
 	strcpy(image.of_filename, CONFIG_DTB_FILENAME);
 
-	if (sunxi_sdhci_init(&sdhci0) != 0) {
-		fatal("SMHC: %s controller init failed\r\n", sdhci0.name);
-	} else {
-		info("SMHC: %s controller v%" PRIx32 " initialized\r\n", sdhci0.name, sdhci0.reg->vers);
-	}
-	if (sdmmc_init(&card0, &sdhci0) != 0) {
-#ifdef CONFIG_BOOT_SPINAND
-		warning("SMHC: init failed, trying SPI\r\n");
-		goto _spi;
-#else
-		fatal("SMHC: init failed\r\n");
-#endif
+	while(1) {
+		if (smhc_load(&sdhci0, &card0, &image, 0))
+			goto _boot;
+
+		if (smhc_load(&sdhci1, &card1, &image, 1))
+			goto _boot;
 	}
 
-#ifdef CONFIG_BOOT_SPINAND
-	if (load_sdcard(&image) != 0) {
-		warning("SMHC: loading failed, trying SPI\r\n");
-	} else {
-		goto _boot;
-	}
-#else
-	if (load_sdcard(&image) != 0) {
-		fatal("SMHC: card load failed\r\n");
-	} else {
-		goto _boot;
-	}
-#endif // CONFIG_SPI_NAND
-#endif
 
-#ifdef CONFIG_BOOT_SPINAND
-#if defined(CONFIG_BOOT_SDCARD) || defined(CONFIG_BOOT_MMC)
-_spi:
-#endif
-	dma_init();
-	dma_test();
-	debug("SPI: init\r\n");
-	if (sunxi_spi_init(&sunxi_spi0) != 0) {
-		fatal("SPI: init failed\r\n");
-	}
-
-	if (load_spi_nand(&sunxi_spi0, &image) != 0) {
-		fatal("SPI-NAND: loading failed\r\n");
-	}
-
-	sunxi_spi_disable(&sunxi_spi0);
-	dma_exit();
-
-#endif // CONFIG_SPI_NAND
-
-#if defined(CONFIG_BOOT_SDCARD) || defined(CONFIG_BOOT_MMC)
 _boot:
-#endif
 	if (boot_image_setup((unsigned char *)image.dest, &entry_point)) {
 		fatal("boot setup failed\r\n");
 	}
