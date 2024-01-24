@@ -1,3 +1,12 @@
+
+Modified version of (https://github.com/szemzoa/awboot)  
+
+SPI is generally removed. Added sdhci1 next to sdhci0 for booting from embedded MMC.
+
+(Modified for T113-S3 Only)
+
+
+
 # AWBoot
 
 Small linux bootloader for Allwinner T113-S3
@@ -17,22 +26,6 @@ This it not needed for writing to an SD card.
 ```
 xfel write 0x30000 awboot-fel.bin
 xfel exec 0x30000
-```
-
-### FEL SPI NOR boot:
-```
-make spi-boot.img
-xfel spinor
-xfel spinor write 0 spi-boot.img
-xfel reset
-```
-
-### FEL SPI NAND boot:
-```
-make spi-boot.img
-xfel spi_nand
-xfel spi_nand write 0 spi-boot.img
-xfel reset
 ```
 
 ### SD Card boot:
