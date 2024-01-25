@@ -176,5 +176,6 @@ extern sdmmc_pdata_t card1;
 
 int		 sdmmc_init(sdmmc_pdata_t *data, sdhci_t *hci);
 uint64_t sdmmc_blk_read(sdmmc_pdata_t *data, uint8_t *buf, uint64_t blkno, uint64_t blkcnt);
+uint64_t sdmmc_blk_write(sdmmc_pdata_t *data, uint8_t *buf, uint64_t blkno, uint64_t blkcnt);
 
 #endif /* __SDCARD_H__ */

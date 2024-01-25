@@ -64,6 +64,8 @@
 #define CCU_MBUS_MAT_CLK_GATING_REG	 (0x804)
 #define CCU_DRAM_BGR_REG			 (0x80c)
 #define CCU_SMHC0_CLK_REG			 (0x830)
+#define CCU_SMHC1_CLK_REG			 (0x834)
+#define CCU_SMHC2_CLK_REG			 (0x838)
 #define CCU_SMHC_BGR_REG			 (0x84c)
 #define CCU_USART_BGR_REG			 (0x90c)
 #define CCU_SPI0_CLK_REG			 (0x940)

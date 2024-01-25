@@ -348,7 +348,7 @@ static int wait_done(sdhci_t *sdhci, sdhci_data_t *dat, u32 timeout_msecs, u32 f
 			return -1;
 		}
 		if (dat && dma && (dat->blkcnt * dat->blksz) > 0)
-			done = ((status & flag) && (sdhci->reg->idst & SMHC_IDMAC_RECEIVE_INTERRUPT)) ? 1 : 0;
+			done = ((status & flag) && (sdhci->reg->idst > 0)) ? 1 : 0;
 		else
 			done = (status & flag);
 	} while (!done);
@@ -528,7 +528,7 @@ bool sdhci_transfer(sdhci_t *sdhci, sdhci_cmd_t *cmd, sdhci_data_t *dat)
 		sdhci->reg->cmd = cmdval | cmd->idx | SMHC_CMD_START; // Start
 	}
 
-	if (wait_done(sdhci, 0, 100, SMHC_RINT_COMMAND_DONE, false)) {
+	if (wait_done(sdhci, 0, 200, SMHC_RINT_COMMAND_DONE, false)) {
 		warning("SMHC: cmd timeout\r\n");
 		return FALSE;
 	}
@@ -542,7 +542,7 @@ bool sdhci_transfer(sdhci_t *sdhci, sdhci_cmd_t *cmd, sdhci_data_t *dat)
 		timeout = time_ms();
 		do {
 			status = sdhci->reg->status;
-			if (time_ms() - timeout > 10) {
+			if (time_ms() - timeout > 500) {
 				sdhci->reg->gctrl = SMHC_GCTRL_HARDWARE_RESET;
 				sdhci->reg->rint  = 0xffffffff;
 				warning("SMHC: busy timeout\r\n");
@@ -630,10 +630,10 @@ static int config_delay(sdhci_t *sdhci)
 
 	trace("SMHC: odly: %d   sldy: %d\r\n", odly, sdly);
 
-	ccu->smhc0_clk_cfg &= (~CCU_MMC_CTRL_ENABLE);
+	*(sdhci->ccuclk) &= (~CCU_MMC_CTRL_ENABLE);
 	sdhci->reg->drv_dl &= (~(0x3 << 16));
 	sdhci->reg->drv_dl |= (((odly & 0x1) << 16) | ((odly & 0x1) << 17));
-	ccu->smhc0_clk_cfg |= CCU_MMC_CTRL_ENABLE;
+	*(sdhci->ccuclk) |= CCU_MMC_CTRL_ENABLE;
 
 	rval = sdhci->reg->ntsr;
 	rval &= (~(0x3 << 8));
@@ -733,11 +733,11 @@ bool sdhci_set_clock(sdhci_t *sdhci, smhc_clk_t clock)
 
 	sdhci->reg->ntsr |= SUNXI_MMC_NTSR_MODE_SEL_NEW;
 
-	ccu->smhc_gate_reset |= CCU_MMC_BGR_SMHC0_RST;
-	ccu->smhc0_clk_cfg &= (~CCU_MMC_CTRL_ENABLE);
-	ccu->smhc0_clk_cfg = pll | CCU_MMC_CTRL_N(n) | CCU_MMC_CTRL_M(div);
-	ccu->smhc0_clk_cfg |= CCU_MMC_CTRL_ENABLE;
-	ccu->smhc_gate_reset |= CCU_MMC_BGR_SMHC0_GATE;
+	ccu->smhc_gate_reset |= sdhci->smhc_reset;
+	*(sdhci->ccuclk) &= (~CCU_MMC_CTRL_ENABLE);
+	*(sdhci->ccuclk)  = pll | CCU_MMC_CTRL_N(n) | CCU_MMC_CTRL_M(div);
+	*(sdhci->ccuclk) |= CCU_MMC_CTRL_ENABLE;
+	ccu->smhc_gate_reset |= sdhci->smhc_gate;
 
 	sdhci->pclk = mod_hz;
 

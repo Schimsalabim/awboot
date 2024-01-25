@@ -332,10 +332,10 @@ static uint64_t sdmmc_read_blocks(sdhci_t *hci, sdmmc_t *card, uint8_t *buf, uin
 	sdhci_data_t dat = {0};
 	int			 status;
 
-	if (blkcnt > 1)
+	//if (blkcnt > 1)
 		cmd.idx = MMC_READ_MULTIPLE_BLOCK;
-	else
-		cmd.idx = MMC_READ_SINGLE_BLOCK;
+	//else
+	//	cmd.idx = MMC_READ_SINGLE_BLOCK;
 	if (card->high_capacity)
 		cmd.arg = start;
 	else
@@ -371,6 +371,50 @@ static uint64_t sdmmc_read_blocks(sdhci_t *hci, sdmmc_t *card, uint8_t *buf, uin
 	}
 	return blkcnt;
 }
+
+static uint64_t sdmmc_write_blocks(sdhci_t *hci, sdmmc_t *card, uint8_t *buf, uint64_t start, uint64_t blkcnt)
+{
+        sdhci_cmd_t      cmd = {0};
+        sdhci_data_t dat = {0};
+        int                      status;
+
+        cmd.idx = MMC_WRITE_MULTIPLE_BLOCK;
+        if (card->high_capacity)
+                cmd.arg = start;
+        else
+                cmd.arg = start * card->read_bl_len;
+        cmd.resptype = 	MMC_RSP_R1B;
+        dat.buf          = buf;
+        dat.flag         = MMC_DATA_WRITE;
+        dat.blksz        = card->read_bl_len;
+        dat.blkcnt       = blkcnt;
+
+        if (!sdhci_transfer(hci, &cmd, &dat)) {
+                warning("SMHC: write failed\r\n");
+                return 0;
+        }
+
+        if (!hci->isspi) {
+                do {
+                        status = sdmmc_status(hci, card);
+                        if (status < 0) {
+                                return 0;
+                        }
+                } while ((status != MMC_STATUS_TRAN) && (status != MMC_STATUS_DATA));
+        }
+
+        if (blkcnt > 1) {
+                cmd.idx          = MMC_STOP_TRANSMISSION;
+                cmd.arg          = 0;
+                cmd.resptype = MMC_RSP_R1B;
+                if (!sdhci_transfer(hci, &cmd, NULL)) {
+                        warning("SMHC: transfer stop failed\r\n");
+                        return 0;
+                }
+        }
+        return blkcnt;
+}
+
 
 static bool sdmmc_detect(sdhci_t *hci, sdmmc_t *card)
 {
@@ -681,6 +725,23 @@ static bool sdmmc_detect(sdhci_t *hci, sdmmc_t *card)
 		return FALSE;
 
 	return TRUE;
+}
+
+uint64_t sdmmc_blk_write(sdmmc_pdata_t *data, uint8_t *buf, uint64_t blkno, uint64_t blkcnt)
+{
+        uint64_t cnt, blks = blkcnt;
+        sdmmc_t *sdcard = &data->card;
+
+        while (blks > 0) {
+                cnt = (blks > 127) ? 127 : blks;
+                if (sdmmc_write_blocks(data->hci, sdcard, buf, blkno, cnt) != cnt) 
+                        return 0;
+	
+                blks -= cnt;
+                blkno += cnt;
+                buf += cnt * sdcard->read_bl_len;
+        }
+        return blkcnt;
 }
 
 uint64_t sdmmc_blk_read(sdmmc_pdata_t *data, uint8_t *buf, uint64_t blkno, uint64_t blkcnt)

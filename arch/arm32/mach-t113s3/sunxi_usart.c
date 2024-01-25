@@ -42,15 +42,18 @@ void sunxi_usart_init(sunxi_usart_t *usart)
 	val &= ~0x1f;
 	val |= (0x3 << 0) | (0 << 2) | (0x0 << 3);
 	write32(addr + 0x0c, val);
+
+        sunxi_usart_putc(usart, '!');
 }
 
 void sunxi_usart_putc(void *arg, char c)
 {
-	sunxi_usart_t *usart = (sunxi_usart_t *)arg;
+        sunxi_usart_t *usart = (sunxi_usart_t *)arg;
 
-	while ((read32(usart->base + 0x7c) & (0x1 << 1)) == 0)
-		;
-	write32(usart->base + 0x00, c);
-	while ((read32(usart->base + 0x7c) & (0x1 << 0)) == 1)
-		;
+        while ((read32(usart->base + 0x7c) & (0x1 << 1)) == 0)
+                ;
+        write32(usart->base + 0x00, c);
+        while ((read32(usart->base + 0x7c) & (0x1 << 0)) == 1)
+                ;
 }
+

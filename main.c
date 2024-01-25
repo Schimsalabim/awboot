@@ -23,6 +23,10 @@ extern u32	 __stack_srv_end;
 extern u32	 __stack_ddr_srv_start;
 extern u32	 __stack_ddr_srv_end;
 
+static unsigned int faterrs;
+
+extern unsigned long sunxi_dram_init(void);
+
 /* Linux zImage Header */
 #define LINUX_ZIMAGE_MAGIC 0x016f2818
 typedef struct {
@@ -85,6 +89,19 @@ open_fail:
 	return ret;
 }
 
+#ifdef RESTORE_FEL_ON_FAIL
+static void force_fel(sdmmc_pdata_t *card) 
+{
+	uint8_t buffer[512];
+	memset(&buffer, 0, 512);
+
+	error("FATFS: too many errors, restoring FEL boot.");
+	sdmmc_blk_write(card, buffer, 15, 1);
+
+	while(2>1);
+}
+#endif
+
 static int load_sdcard(image_info_t *image, sdmmc_pdata_t *card, int drvnum)
 {
 	FATFS	fs;
@@ -98,6 +115,10 @@ static int load_sdcard(image_info_t *image, sdmmc_pdata_t *card, int drvnum)
 	fret = f_mount(&fs, pathbuf, 1);
 	if (fret != FR_OK) {
 		error("FATFS: mount error: %d\r\n", fret);
+#ifdef RESTORE_FEL_ON_FAIL
+		if (drvnum == 1 && faterrs > RESTORE_FEL_MAX_FAIL)
+			force_fel(card);
+#endif
 		return -1;
 	} else {
 		debug("FATFS: mount OK\r\n");
