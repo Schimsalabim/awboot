@@ -7,7 +7,6 @@
 #include "reg-ccu.h"
 #include "sdmmc.h"
 
-/*
 sunxi_usart_t usart5_dbg = {
 	.base	 = 0x02501400,
 	.id		 = 5,
@@ -21,7 +20,6 @@ sunxi_usart_t usart0_dbg = {
 	.gpio_tx = {GPIO_PIN(PORTE, 2), GPIO_PERIPH_MUX6},
 	.gpio_rx = {GPIO_PIN(PORTE, 3), GPIO_PERIPH_MUX6},
 };
-*/
 
 sunxi_usart_t usart1_dbg = {
 	.base	 = 0x02500400,
@@ -30,7 +28,6 @@ sunxi_usart_t usart1_dbg = {
 	.gpio_rx = {GPIO_PIN(PORTB, 7), GPIO_PERIPH_MUX2},
 };
 
-/*
 sunxi_usart_t usart3_dbg = {
 	.base	 = 0x02500c00,
 	.id		 = 3,
@@ -49,7 +46,6 @@ sunxi_spi_t sunxi_spi0 = {
 	.gpio_wp   = {GPIO_PIN(PORTC, 6), GPIO_PERIPH_MUX2},
 	.gpio_hold = {GPIO_PIN(PORTC, 7), GPIO_PERIPH_MUX2},
 };
-*/
 
 sdhci_t sdhci0 = {
         .name      = "sdhci0",
