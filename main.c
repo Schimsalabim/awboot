@@ -96,7 +96,7 @@ static void force_fel(sdmmc_pdata_t *card)
 	memset(&buffer, 0, 512);
 
 	error("FATFS: too many errors, restoring FEL boot.");
-	sdmmc_blk_write(card, buffer, 15, 1);
+	sdmmc_blk_write(card, buffer, 16, 1);
 
 	while(2>1);
 }
@@ -114,9 +114,9 @@ static int load_sdcard(image_info_t *image, sdmmc_pdata_t *card, int drvnum)
 	/* mount fs */
 	fret = f_mount(&fs, pathbuf, 1);
 	if (fret != FR_OK) {
-		error("FATFS: mount error: %d\r\n", fret);
+		error("FATFS: mount error %d: %d\r\n", faterrs, fret);
 #ifdef RESTORE_FEL_ON_FAIL
-		if (drvnum == 1 && faterrs > RESTORE_FEL_MAX_FAIL)
+		if (drvnum == 1 && faterrs++ > RESTORE_FEL_MAX_FAIL)
 			force_fel(card);
 #endif
 		return -1;
